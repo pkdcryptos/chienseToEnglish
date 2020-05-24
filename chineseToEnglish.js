@@ -15,7 +15,7 @@ class GlobalHeaderRight extends Component {
         type: 'global/fetchNotices',
       });
     }
-  }
+  } 
 
   changeReadState = clickedItem => {
     const { id } = clickedItem;
