@@ -1,252 +1,208 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Divider, Input, Popconfirm, Table, message } from 'antd';
-import React, { useState } from 'react';
-import styles from '../style.less';
+/**
+ * Ant Design Pro v4 use `@ant-design/pro-layout` to handle Layout.
+ * You can view component api by:
+ * https://github.com/ant-design/ant-design-pro-layout
+ */
+import ProLayout, { DefaultFooter, SettingDrawer } from '@ant-design/pro-layout';
+import React, { useEffect } from 'react';
+import { Link, useIntl, connect } from 'umi';
+import { GithubOutlined } from '@ant-design/icons';
+import { Result, Button } from 'antd';
+import Authorized from '@/utils/Authorized';
+import RightContent from '@/components/GlobalHeader/RightContent';
+import { getAuthorityFromRouter } from '@/utils/utils';
+import logo from '../assets/logo.svg';
+import {  RouteContext } from '@ant-design/pro-layout';
+import FooterToolbar from './components/FooterToolbar';
+import Pusher from "pusher-js";
+import { PusherProvider } from "./PusherContext";
 
-const TableForm = ({ value, onChange }) => {
-  const [clickedCancel, setClickedCancel] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [index, setIndex] = useState(0);
-  const [cacheOriginData, setCacheOriginData] = useState({});
-  const [data, setData] = useState(value);
+// Enable pusher logging - don't include this in production
+Pusher.logToConsole = true;
 
-  const getRowByKey = (key, newData) => (newData || data)?.filter(item => item.key === key)[0];
+// Set up pusher instance with main channel subscription
+// Be able to subscribe to the same channel in another component
+// with separate callback but utilizing the existing connection
+const pusher = new Pusher('413caa7397eebba49079', {
+  cluster: 'mt1',
+  encrypted: true
+});
 
-  const toggleEditable = (e, key) => {
-    e.preventDefault();
-    const newData = data?.map(item => ({ ...item }));
-    const target = getRowByKey(key, newData);
 
-    if (target) {
-      // 进入编辑状态时保存原始数据
-      if (!target.editable) {
-        cacheOriginData[key] = { ...target };
-        setCacheOriginData(cacheOriginData);
-      }
-
-      target.editable = !target.editable;
-      setData(newData);
+const noMatch = (
+  <Result
+    status={403}
+    title="403"
+    subTitle="Sorry, you are not authorized to access this page."
+    extra={
+      <Button type="primary">
+        <Link to="/user/login">Go Login</Link>
+      </Button>
     }
-  };
+  />
+);
 
-  const newMember = () => {
-    const newData = data?.map(item => ({ ...item })) || []; // eslint-disable-next-line no-unused-expressions
+/**
+ * use Authorized check all menu item
+ */
+const menuDataRender = menuList =>
+  menuList.map(item => {
+    const localItem = { ...item, children: item.children ? menuDataRender(item.children) : [] };
+    return Authorized.check(item.authority, localItem, null);
+  });
 
-    newData?.push({
-      key: `NEW_TEMP_ID_${index}`,
-      workId: '',
-      name: '',
-      department: '',
-      editable: true,
-      isNew: true,
-    });
-    setIndex(index + 1);
-    setData(newData);
-  };
+const defaultFooterDom = (
+  <DefaultFooter
+    copyright="2019 蚂蚁金服体验技术部出品"
+    links={[
+      {
+        key: 'Ant Design Pro',
+        title: 'Ant Design Pro',
+        href: 'https://pro.ant.design',
+        blankTarget: true,
+      },
+      {
+        key: 'github',
+        title: <GithubOutlined />,
+        href: 'https://github.com/ant-design/ant-design-pro',
+        blankTarget: true,
+      },
+      {
+        key: 'Ant Design',
+        title: 'Ant Design',
+        href: 'https://ant.design',
+        blankTarget: true,
+      },
+    ]}
+  />
+);
 
-  const remove = key => {
-    const newData = data?.filter(item => item.key !== key);
-    setData(newData);
+const BasicLayout = props => {
+  const {
+    dispatch,
+    children,
+    settings,
+    location = {
+      pathname: '/',
+    },
+  } = props;
+  /**
+   * constructor
+   */
 
-    if (onChange) {
-      onChange(newData);
+  useEffect(() => {
+    if (dispatch) {
+      dispatch({
+        type: 'user/fetchCurrent',
+      });
     }
-  };
+  }, []);
+  /**
+   * init variables
+   */
 
-  const handleFieldChange = (e, fieldName, key) => {
-    const newData = [...data];
-    const target = getRowByKey(key, newData);
-
-    if (target) {
-      target[fieldName] = e.target.value;
-      setData(newData);
+const handleLinkClick = () => {
+	
+	
+       
+          if (dispatch) {
+      dispatch({
+        type: 'global/changeLayoutCollapsed',
+        payload: true
+      });
     }
-  };
-
-  const saveRow = (e, key) => {
-    e.persist();
-    setLoading(true);
-    setTimeout(() => {
-      if (clickedCancel) {
-        setClickedCancel(false);
-        return;
-      }
-
-      const target = getRowByKey(key) || {};
-
-      if (!target.workId || !target.name || !target.department) {
-        message.error('请填写完整成员信息。');
-        e.target.focus();
-        setLoading(false);
-        return;
-      }
-
-      delete target.isNew;
-      toggleEditable(e, key);
-
-      if (onChange) {
-        onChange(data);
-      }
-
-      setLoading(false);
-    }, 500);
-  };
-
-  const handleKeyPress = (e, key) => {
-    if (e.key === 'Enter') {
-      saveRow(e, key);
+       
+     
+	
+  }
+  const handleMenuCollapse = payload => {
+    if (dispatch) {
+      dispatch({
+        type: 'global/changeLayoutCollapsed',
+        payload,
+      });
     }
+  }; // get children authority
+
+  const authorized = getAuthorityFromRouter(props.route.routes, location.pathname || '/') || {
+    authority: undefined,
   };
-
-  const cancel = (e, key) => {
-    setClickedCancel(true);
-    e.preventDefault();
-    const newData = [...data]; // 编辑前的原始数据
-
-    let cacheData = [];
-    cacheData = newData.map(item => {
-      if (item.key === key) {
-        if (cacheOriginData[key]) {
-          const originItem = { ...item, ...cacheOriginData[key], editable: false };
-          delete cacheOriginData[key];
-          setCacheOriginData(cacheOriginData);
-          return originItem;
-        }
-      }
-
-      return item;
-    });
-    setData(cacheData);
-    setClickedCancel(false);
-  };
-
-  const columns = [
-    {
-      title: '成员姓名',
-      dataIndex: 'name',
-      key: 'name',
-      width: '20%',
-      render: (text, record) => {
-        if (record.editable) {
-          return (
-            <Input
-              value={text}
-              autoFocus
-              onChange={e => handleFieldChange(e, 'name', record.key)}
-              onKeyPress={e => handleKeyPress(e, record.key)}
-              placeholder="成员姓名"
-            />
-          );
-        }
-
-        return text;
-      },
-    },
-    {
-      title: '工号',
-      dataIndex: 'workId',
-      key: 'workId',
-      width: '20%',
-      render: (text, record) => {
-        if (record.editable) {
-          return (
-            <Input
-              value={text}
-              onChange={e => handleFieldChange(e, 'workId', record.key)}
-              onKeyPress={e => handleKeyPress(e, record.key)}
-              placeholder="工号"
-            />
-          );
-        }
-
-        return text;
-      },
-    },
-    {
-      title: '所属部门',
-      dataIndex: 'department',
-      key: 'department',
-      width: '40%',
-      render: (text, record) => {
-        if (record.editable) {
-          return (
-            <Input
-              value={text}
-              onChange={e => handleFieldChange(e, 'department', record.key)}
-              onKeyPress={e => handleKeyPress(e, record.key)}
-              placeholder="所属部门"
-            />
-          );
-        }
-
-        return text;
-      },
-    },
-    {
-      title: '操作',
-      key: 'action',
-      render: (text, record) => {
-        if (!!record.editable && loading) {
-          return null;
-        }
-
-        if (record.editable) {
-          if (record.isNew) {
-            return (
-              <span>
-                <a onClick={e => saveRow(e, record.key)}>添加</a>
-                <Divider type="vertical" />
-                <Popconfirm title="是否要删除此行？" onConfirm={() => remove(record.key)}>
-                  <a>删除</a>
-                </Popconfirm>
-              </span>
-            );
-          }
-
-          return (
-            <span>
-              <a onClick={e => saveRow(e, record.key)}>保存</a>
-              <Divider type="vertical" />
-              <a onClick={e => cancel(e, record.key)}>取消</a>
-            </span>
-          );
-        }
-
-        return (
-          <span>
-            <a onClick={e => toggleEditable(e, record.key)}>编辑</a>
-            <Divider type="vertical" />
-            <Popconfirm title="是否要删除此行？" onConfirm={() => remove(record.key)}>
-              <a>删除</a>
-            </Popconfirm>
-          </span>
-        );
-      },
-    },
-  ];
+  const { formatMessage } = useIntl();
   return (
     <>
-      <Table
-        loading={loading}
-        columns={columns}
-        dataSource={data}
-        pagination={false}
-        rowClassName={record => (record.editable ? styles.editable : '')}
-      />
-      <Button
-        style={{
-          width: '100%',
-          marginTop: 16,
-          marginBottom: 8,
+	<PusherProvider pusher={pusher}>
+      <ProLayout
+        logo={logo}
+        formatMessage={formatMessage}
+        menuHeaderRender={(logoDom, titleDom) => (
+          <Link to="/">
+            {logoDom}
+            {titleDom}
+          </Link>
+        )}
+        onCollapse={handleMenuCollapse}
+        menuItemRender={(menuItemProps, defaultDom) => {
+          if (menuItemProps.isUrl || menuItemProps.children || !menuItemProps.path) {
+            return defaultDom;
+          }
+
+
+          return  (<RouteContext.Consumer>
+                {({ isMobile }) => (
+                  isMobile ? <Link to={menuItemProps.path} onClick={handleLinkClick}>{defaultDom}</Link>  : <Link to={menuItemProps.path} >{defaultDom}</Link> 
+                )}
+              </RouteContext.Consumer>)
+			  
         }}
-        type="dashed"
-        onClick={newMember}
+        breadcrumbRender={(routers = []) => [
+          {
+            path: '/',
+            breadcrumbName: formatMessage({
+              id: 'menu.home',
+            }),
+          },
+          ...routers,
+        ]}
+        itemRender={(route, params, routes, paths) => {
+          const first = routes.indexOf(route) === 0;
+          return first ? (
+            <Link to={paths.join('/')}>{route.breadcrumbName}</Link>
+          ) : (
+            <span>{route.breadcrumbName}</span>
+          );
+        }}
+        footerRender={() => defaultFooterDom}
+        menuDataRender={menuDataRender}
+        rightContentRender={() => <RightContent />}
+        {...props}
+        {...settings}
       >
-        <PlusOutlined />
-        新增成员
-      </Button>
+        <Authorized authority={authorized.authority} noMatch={noMatch}>
+          {children}
+		  
+		   <FooterToolbar>
+       
+        <Button type="primary" >
+          提交
+        </Button>
+      </FooterToolbar>
+        </Authorized>
+      </ProLayout>
+	  </PusherProvider>
+      <SettingDrawer
+        settings={settings}
+        onSettingChange={config =>
+          dispatch({
+            type: 'settings/changeSetting',
+            payload: config,
+          })
+        }
+      />
     </>
   );
 };
 
-export default TableForm;
+export default connect(({ global, settings }) => ({
+  collapsed: global.collapsed,
+  settings,
+}))(BasicLayout);
