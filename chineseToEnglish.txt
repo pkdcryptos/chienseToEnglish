@@ -1,18 +1,36 @@
+/**
+ * 在生产环境 代理是无法生效的，所以这里没有生产环境的配置
+ * The agent cannot take effect in the production environment
+ * so there is no configuration of the production environment
+ * For details, please see
+ * https://pro.ant.design/docs/deploy
+ */
 export default {
-  navTheme: 'light',
-  // 拂晓蓝
-  primaryColor: '#1890ff',
-  layout: 'sidemenu',
-  contentWidth: 'Fluid',
-  fixedHeader: true,
-  fixedFooter: true,
-  autoHideHeader: false,
-  fixSiderbar: true,
-  colorWeak: false,
-  menu: {
-    locale: true,
+  dev: {
+    '/api/': {
+      target: 'https://preview.pro.ant.design',
+      changeOrigin: true,
+      pathRewrite: {
+        '^': '',
+      },
+    },
   },
-  title: 'Ant Design Pro',
-  pwa: false,
-  iconfontUrl: '',
+  test: {
+    '/api/': {
+      target: 'https://preview.pro.ant.design',
+      changeOrigin: true,
+      pathRewrite: {
+        '^': '',
+      },
+    },
+  },
+  pre: {
+    '/api/': {
+      target: 'your pre url',
+      changeOrigin: true,
+      pathRewrite: {
+        '^': '',
+      },
+    },
+  },
 };
