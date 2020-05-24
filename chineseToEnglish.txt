@@ -263,3 +263,4 @@ export default connect(({ listAndbasicList, loading }) => ({
   listAndbasicList,
   loading: loading.models.listAndbasicList,
 }))(BasicList);
+ 
