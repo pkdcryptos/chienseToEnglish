@@ -1,80 +1,164 @@
-import { LogoutOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Menu, Spin } from 'antd';
-import React from 'react';
-import { history, connect } from 'umi';
-import HeaderDropdown from '../HeaderDropdown';
+import React, { Component } from 'react';
+import { connect } from 'umi';
+import { Tag, message } from 'antd';
+import groupBy from 'lodash/groupBy';
+import moment from 'moment';
+import NoticeIcon from '../NoticeIcon';
 import styles from './index.less';
 
-class AvatarDropdown extends React.Component {
-  onMenuClick = event => {
-    const { key } = event;
+class GlobalHeaderRight extends Component {
+  componentDidMount() {
+    const { dispatch } = this.props;
 
-    if (key === 'logout') {
-      const { dispatch } = this.props;
+    if (dispatch) {
+      dispatch({
+        type: 'global/fetchNotices',
+      });
+    }
+  }
 
-      if (dispatch) {
-        dispatch({
-          type: 'login/logout',
-        });
-      }
+  changeReadState = clickedItem => {
+    const { id } = clickedItem;
+    const { dispatch } = this.props;
 
-      return;
+    if (dispatch) {
+      dispatch({
+        type: 'global/changeNoticeReadState',
+        payload: id,
+      });
+    }
+  };
+
+  handleNoticeClear = (title, key) => {
+    const { dispatch } = this.props;
+    message.success(`${'清空了'} ${title}`);
+
+    if (dispatch) {
+      dispatch({
+        type: 'global/clearNotices',
+        payload: key,
+      });
+    }
+  };
+
+  getNoticeData = () => {
+    const { notices = [] } = this.props;
+
+    if (!notices || notices.length === 0 || !Array.isArray(notices)) {
+      return {};
     }
 
-    history.push(`/account/${key}`);
+    const newNotices = notices.map(notice => {
+      const newNotice = { ...notice };
+
+      if (newNotice.datetime) {
+        newNotice.datetime = moment(notice.datetime).fromNow();
+      }
+
+      if (newNotice.id) {
+        newNotice.key = newNotice.id;
+      }
+
+      if (newNotice.extra && newNotice.status) {
+        const color = {
+          todo: '',
+          processing: 'blue',
+          urgent: 'red',
+          doing: 'gold',
+        }[newNotice.status];
+        newNotice.extra = (
+          <Tag
+            color={color}
+            style={{
+              marginRight: 0,
+            }}
+          >
+            {newNotice.extra}
+          </Tag>
+        );
+      }
+
+      return newNotice;
+    });
+    return groupBy(newNotices, 'type');
+  };
+
+  getUnreadData = noticeData => {
+    const unreadMsg = {};
+    Object.keys(noticeData).forEach(key => {
+      const value = noticeData[key];
+
+      if (!unreadMsg[key]) {
+        unreadMsg[key] = 0;
+      }
+
+      if (Array.isArray(value)) {
+        unreadMsg[key] = value.filter(item => !item.read).length;
+      }
+    });
+    return unreadMsg;
   };
 
   render() {
-    const {
-      currentUser = {
-        avatar: '',
-        name: '',
-      },
-      menu,
-    } = this.props;
-    const menuHeaderDropdown = (
-      <Menu className={styles.menu} selectedKeys={[]} onClick={this.onMenuClick}>
-        {menu && (
-          <Menu.Item key="center">
-            <UserOutlined />
-            个人中心
-          </Menu.Item>
-        )}
-        {menu && (
-          <Menu.Item key="settings">
-            <SettingOutlined />
-            个人设置
-          </Menu.Item>
-        )}
-        {menu && <Menu.Divider />}
-
-        <Menu.Item key="logout">
-          <LogoutOutlined />
-          退出登录
-        </Menu.Item>
-      </Menu>
-    );
-    return currentUser && currentUser.name ? (
-      <HeaderDropdown overlay={menuHeaderDropdown}>
-        <span className={`${styles.action} ${styles.account}`}>
-          <Avatar size="small" className={styles.avatar} src={currentUser.avatar} alt="avatar" />
-          <span className={styles.name}>{currentUser.name}</span>
-        </span>
-      </HeaderDropdown>
-    ) : (
-      <span className={`${styles.action} ${styles.account}`}>
-        <Spin
-          size="small"
-          style={{
-            marginLeft: 8,
-            marginRight: 8,
-          }}
+    const { currentUser, fetchingNotices, onNoticeVisibleChange } = this.props;
+    const noticeData = this.getNoticeData();
+    const unreadMsg = this.getUnreadData(noticeData);
+    return (
+      <NoticeIcon
+        className={styles.action}
+        count={currentUser && currentUser.unreadCount}
+        onItemClick={item => {
+          this.changeReadState(item);
+        }}
+        loading={fetchingNotices}
+        clearText="清空"
+        viewMoreText="查看更多"
+        onClear={this.handleNoticeClear}
+        onPopupVisibleChange={onNoticeVisibleChange}
+        onViewMore={() => message.info('Click on view more')}
+        clearClose
+      >
+        <NoticeIcon.Tab
+          tabKey="pusher"
+          title="Pusher"
+          emptyText="Pusher empty text"
+          count={unreadMsg.event}
+          list={noticeData.event}
+          showViewMore
         />
-      </span>
+		<NoticeIcon.Tab
+          tabKey="notification"
+          count={unreadMsg.notification}
+          list={noticeData.notification}
+          title="通知"
+          emptyText="你已查看所有通知"
+          showViewMore
+        />
+        <NoticeIcon.Tab
+          tabKey="message"
+          count={unreadMsg.message}
+          list={noticeData.message}
+          title="消息"
+          emptyText="您已读完所有消息"
+          showViewMore
+        />
+        <NoticeIcon.Tab
+          tabKey="event"
+          title="待办"
+          emptyText="你已完成所有待办"
+          count={unreadMsg.event}
+          list={noticeData.event}
+          showViewMore
+        />
+      </NoticeIcon>
     );
   }
 }
 
-export default connect(({ user }) => ({
+export default connect(({ user, global, loading }) => ({
   currentUser: user.currentUser,
-}))(AvatarDropdown);
+  collapsed: global.collapsed,
+  fetchingMoreNotices: loading.effects['global/fetchMoreNotices'],
+  fetchingNotices: loading.effects['global/fetchNotices'],
+  notices: global.notices,
+}))(GlobalHeaderRight);
