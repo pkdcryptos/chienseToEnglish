@@ -1,77 +1,49 @@
-import { Tooltip, Tag } from 'antd';
-import { QuestionCircleOutlined } from '@ant-design/icons';
+import { GlobalOutlined } from '@ant-design/icons';
+import { Menu } from 'antd';
+import { getLocale, setLocale } from 'umi';
 import React from 'react';
-import { connect } from 'umi';
-import Avatar from './AvatarDropdown';
-import HeaderSearch from '../HeaderSearch';
-import SelectLang from '../SelectLang';
+import classNames from 'classnames';
+import HeaderDropdown from '../HeaderDropdown';
 import styles from './index.less';
-import NoticeIconView from './NoticeIconView';
 
-const ENVTagColor = {
-  dev: 'orange',
-  test: 'green',
-  pre: '#87d068',
-};
+const SelectLang = props => {
+  const { className } = props;
+  const selectedLang = getLocale();
 
-const GlobalHeaderRight = props => {
-  const { theme, layout } = props;
-  let className = styles.right;
+  const changeLang = ({ key }) => setLocale(key);
 
-  if (theme === 'dark' && layout === 'topmenu') {
-    className = `${styles.right}  ${styles.dark}`;
-  }
-
+  const locales = ['zh-CN', 'zh-TW', 'en-US', 'pt-BR'];
+  const languageLabels = {
+    'zh-CN': '简体中文',
+    'zh-TW': '繁体中文',
+    'en-US': 'English',
+    'pt-BR': 'Português',
+  };
+  const languageIcons = {
+    'zh-CN': '🇨🇳',
+    'zh-TW': '🇭🇰',
+    'en-US': '🇺🇸',
+    'pt-BR': '🇧🇷',
+  };
+  const langMenu = (
+    <Menu className={styles.menu} selectedKeys={[selectedLang]} onClick={changeLang}>
+      {locales.map(locale => (
+        <Menu.Item key={locale}>
+          <span role="img" aria-label={languageLabels[locale]}>
+            {languageIcons[locale]}
+          </span>{' '}
+          {languageLabels[locale]}
+        </Menu.Item>
+      ))}
+    </Menu>
+  );
   return (
-    <div className={className}>
-      <HeaderSearch
-        className={`${styles.action} ${styles.search}`}
-        placeholder="站内搜索"
-        defaultValue="umi ui"
-        options={[
-          {
-            label: <a href="https://umijs.org/zh/guide/umi-ui.html">umi ui</a>,
-            value: 'umi ui',
-          },
-          {
-            label: <a href="next.ant.design">Ant Design</a>,
-            value: 'Ant Design',
-          },
-          {
-            label: <a href="https://protable.ant.design/">Pro Table</a>,
-            value: 'Pro Table',
-          },
-          {
-            label: <a href="https://prolayout.ant.design/">Pro Layout</a>,
-            value: 'Pro Layout',
-          },
-        ]} // onSearch={value => {
-        //   //console.log('input', value);
-        // }}
-      />
-      <Tooltip title="使用文档">
-        <a
-          target="_blank"
-          href="https://pro.ant.design/docs/getting-started"
-          rel="noopener noreferrer"
-          className={styles.action}
-        >
-          <QuestionCircleOutlined />
-        </a>
-      </Tooltip>
-      <NoticeIconView />
-      <Avatar menu />
-      {REACT_APP_ENV && (
-        <span>
-          <Tag color={ENVTagColor[REACT_APP_ENV]}>{REACT_APP_ENV}</Tag>
-        </span>
-      )}
-      <SelectLang className={styles.action} />
-    </div>
+    <HeaderDropdown overlay={langMenu} placement="bottomRight">
+      <span className={classNames(styles.dropDown, className)}>
+        <GlobalOutlined title="语言" />
+      </span>
+    </HeaderDropdown>
   );
 };
 
-export default connect(({ settings }) => ({
-  theme: settings.navTheme,
-  layout: settings.layout,
-}))(GlobalHeaderRight);
+export default SelectLang;
